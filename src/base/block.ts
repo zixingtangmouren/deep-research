@@ -1,16 +1,22 @@
 import dotenv from 'dotenv';
-import { AssistantMessage, Message, SystemMessage, ToolCall, ToolMessage } from './message';
-import { Tools } from './tool';
+import { AssistantMessage, Message, SystemMessage, ToolCall, ToolMessage } from '../base/message';
+import { Tools } from '../base/tool';
 
 interface LLMBaseConfig {
   model: string;
   apiKey: string;
   baseUrl: string;
+  response_format?: {
+    type: 'text' | 'json_object';
+  };
 }
 
 interface BlockConfig {
   instruction: string;
   tools?: Tools;
+  responseFormat?: {
+    type: 'text' | 'json_object';
+  };
 }
 
 dotenv.config();
@@ -30,6 +36,9 @@ export class Block {
       model: process.env.MODEL_NAME,
       apiKey: process.env.DEEPSEEK_API_KEY,
       baseUrl: process.env.BASE_URL,
+      response_format: config.responseFormat || {
+        type: 'text',
+      },
     };
 
     this.instruction = config.instruction;
@@ -37,8 +46,11 @@ export class Block {
     this.tools = config.tools || new Tools([]);
   }
 
-  public async invoke(message?: Message) {
-    const { model, apiKey, baseUrl } = this.llmBaseConfig;
+  public async invoke(message?: Message): Promise<{
+    assistantMessage: string;
+    reasoningContent: string;
+  }> {
+    const { model, apiKey, baseUrl, response_format } = this.llmBaseConfig;
 
     if (message) {
       this.messages.push(message);
@@ -55,6 +67,7 @@ export class Block {
         stream: true,
         messages: this.messages,
         tools: this.tools.getTools(),
+        response_format,
       }),
     });
 

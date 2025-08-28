@@ -1,6 +1,12 @@
-export const generateSupervisorPrompt = (brief: string) => {
+export const generateSupervisorPrompt = ({
+  maxConcurrentResearchUnits,
+  maxResearcherIterations,
+}: {
+  maxResearcherIterations: number;
+  maxConcurrentResearchUnits: number;
+}) => {
   return `
-你是一名研究主管。你的工作是通过调用“ConductResearch”工具来开展研究。请注意，今天的日期是{date}。
+你是一名研究主管。你的工作是通过调用“ConductResearch”工具来开展研究。请注意，今天的日期是${new Date().toLocaleDateString()}。
 
 <任务>
 你的核心任务是调用“ConductResearch”工具，围绕用户提出的整体研究问题进行研究。
@@ -28,9 +34,9 @@ export const generateSupervisorPrompt = (brief: string) => {
 **任务分配预算**（防止过度委派）：
 - **倾向于单一代理**——除非用户的请求明显存在并行处理的可能，否则为简化流程，优先使用单一代理
 - **当能自信回答问题时停止**——不要为追求完美而持续委派研究任务
-- **限制工具调用次数**——如果无法找到合适的信息来源，在调用ConductResearch和think_tool达到{max_researcher_iterations}次后，必须停止
+- **限制工具调用次数**——如果无法找到合适的信息来源，在调用ConductResearch和think_tool达到${maxResearcherIterations}次后，必须停止
 
-**每次迭代最多允许{max_concurrent_research_units}个并行代理**
+**每次迭代最多允许${maxConcurrentResearchUnits}个并行代理**
 </严格限制>
 
 <展示你的思考过程>

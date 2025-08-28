@@ -10,16 +10,17 @@ interface ClarifyResult {
 
 export const clarifyWithUser = async (messages: Message[]): Promise<ClarifyResult | null> => {
   const clarifyAgent = new Block({
+    name: 'clarify',
     instruction: generateClarifyPrompt(messages),
     responseFormat: {
       type: 'json_object',
     },
   });
 
-  const { assistantMessage } = await clarifyAgent.invoke();
+  const assistantMessage = await clarifyAgent.invoke();
 
   try {
-    const json: ClarifyResult = JSON.parse(assistantMessage);
+    const json: ClarifyResult = JSON.parse(assistantMessage?.content || '{}');
     return json;
   } catch (error) {
     console.log('error >>', error);

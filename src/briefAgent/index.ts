@@ -5,8 +5,9 @@ import { generateBriefPrompt } from './prompt';
 
 export const generateBrief = async (messages: Message[]) => {
   const briefAgent = new Block({
+    name: 'brief',
     instruction: generateBriefPrompt(messages),
   });
   const res = await briefAgent.invoke();
-  return res.assistantMessage;
+  return res?.content;
 };

@@ -1,10 +1,12 @@
 import { AssistantMessage, Message, UserMessage } from './base/message';
 import { generateBrief } from './briefAgent';
 import { clarifyWithUser } from './clarifyAgent';
+import { Supervisor } from './supervisorAgent';
 
 export class App {
   private curentNode = 'clarify';
-  clarifyMessages: Message[] = [];
+  private clarifyMessages: Message[] = [];
+  private brief: string = '';
 
   async run(input?: string) {
     switch (this.curentNode) {
@@ -26,7 +28,13 @@ export class App {
       }
       case 'brief': {
         const brief = await generateBrief(this.clarifyMessages);
-        return brief;
+        this.brief = brief || '';
+        return await this.command('supervisor');
+      }
+      case 'supervisor': {
+        const supervisor = new Supervisor();
+        const supervisorResult = await supervisor.start([new UserMessage(this.brief)]);
+        // return supervisorResult.assistantMessage;
       }
     }
   }

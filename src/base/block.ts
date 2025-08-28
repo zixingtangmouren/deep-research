@@ -12,26 +12,32 @@ interface LLMBaseConfig {
 }
 
 interface BlockConfig {
+  name: string;
   instruction: string;
   tools?: Tools;
+  autoRunTools?: boolean;
   responseFormat?: {
     type: 'text' | 'json_object';
   };
+  maxIterations?: number;
 }
 
 dotenv.config();
 
 export class Block {
+  private readonly name: string;
   private readonly llmBaseConfig: LLMBaseConfig;
   private messages: Message[] = [];
   private instruction: string = '';
   private tools: Tools;
+  private autoRunTools: boolean = true;
 
   constructor(config: BlockConfig) {
     if (!process.env.MODEL_NAME || !process.env.DEEPSEEK_API_KEY || !process.env.BASE_URL) {
       throw new Error('MODEL_NAME, DEEPSEEK_API_KEY are not defined');
     }
 
+    this.name = config.name;
     this.llmBaseConfig = {
       model: process.env.MODEL_NAME,
       apiKey: process.env.DEEPSEEK_API_KEY,
@@ -44,16 +50,14 @@ export class Block {
     this.instruction = config.instruction;
     this.messages.push(new SystemMessage(this.instruction));
     this.tools = config.tools || new Tools([]);
+    this.autoRunTools = config.autoRunTools !== false;
   }
 
-  public async invoke(message?: Message): Promise<{
-    assistantMessage: string;
-    reasoningContent: string;
-  }> {
+  public async invoke(messages?: Message[]): Promise<AssistantMessage> {
     const { model, apiKey, baseUrl, response_format } = this.llmBaseConfig;
 
-    if (message) {
-      this.messages.push(message);
+    if (messages) {
+      this.messages.push(...messages);
     }
 
     const res = await fetch(baseUrl, {
@@ -81,7 +85,7 @@ export class Block {
 
     let buffer = '';
     let assistantMessage = '';
-    let reasoningContent = '';
+    // let reasoningContent = '';
     let tools: Record<number, ToolCall> = {};
 
     const reader = res.body?.getReader();
@@ -113,9 +117,9 @@ export class Block {
             }
 
             // Handle reasoning content for deepseek-reasoner model
-            if (delta?.reasoning_content) {
-              reasoningContent += delta.reasoning_content;
-            }
+            // if (delta?.reasoning_content) {
+            //   reasoningContent += delta.reasoning_content;
+            // }
 
             // 处理多个工具调用
             if (delta?.tool_calls) {
@@ -134,35 +138,57 @@ export class Block {
       }
     }
 
+    let message: AssistantMessage;
+
     if (assistantMessage && Object.keys(tools).length === 0) {
-      this.messages.push(new AssistantMessage(assistantMessage));
+      console.table([{ node: this.name, type: 'Assistant', content: JSON.stringify(assistantMessage) }]);
+      message = new AssistantMessage(assistantMessage);
+      this.messages.push(message);
     }
 
     if (Object.keys(tools).length > 0) {
       const tool_calls = Object.values(tools).map((tool) => tool);
-      this.messages.push(new AssistantMessage(assistantMessage, tool_calls));
 
-      const callToolTasks = Object.values(tools).map(async (tool) => {
-        let result = '';
-        try {
-          result = await this.tools.call(tool.function.name, JSON.parse(tool.function.arguments));
-        } catch (error) {
-          result = `${tool.function.name} 执行异常`;
-        }
-        return JSON.stringify(result);
-      });
-      const toolResults = await Promise.all(callToolTasks);
-      const toolResultMessages = toolResults.map((result, index) => {
-        return new ToolMessage(result, tools[index].id);
-      });
-      this.messages.push(...toolResultMessages);
+      if (this.autoRunTools) {
+        console.table([{ node: this.name, type: 'Assistant', json: JSON.stringify(assistantMessage) }]);
+        message = new AssistantMessage(assistantMessage, tool_calls);
+        this.messages.push(message);
 
-      return await this.invoke();
+        const callToolTasks = Object.values(tools).map(async (tool) => {
+          let result = '';
+          try {
+            result = await this.tools.call(tool.function.name, JSON.parse(tool.function.arguments));
+          } catch (error) {
+            result = `${tool.function.name} 执行异常`;
+          }
+          return JSON.stringify(result);
+        });
+        const toolResults = await Promise.all(callToolTasks);
+        const toolResultMessages = toolResults.map((result, index) => {
+          console.table([{ node: this.name, type: 'tool', json: JSON.stringify(result) }]);
+          return new ToolMessage(result, tools[index].id);
+        });
+        this.messages.push(...toolResultMessages);
+
+        return await this.invoke();
+      } else {
+        console.table([
+          {
+            node: this.name,
+            type: 'Assistant',
+            content: JSON.stringify(assistantMessage),
+            tools: tool_calls.map((tool) => tool.function.name).join(','),
+          },
+        ]);
+        message = new AssistantMessage(assistantMessage, tool_calls);
+      }
     }
 
-    return {
-      assistantMessage,
-      reasoningContent,
-    };
+    // 确保 message 已定义后再返回
+    return message!;
+  }
+
+  public getMessages() {
+    return this.messages;
   }
 }

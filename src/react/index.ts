@@ -26,6 +26,7 @@ export class ReActAgent {
       name: 'agent',
       instruction: prompt,
       tools: new Tools([thoughtTool, tavilySearchTool, getCurrentDateTool]),
+      debug: true,
     });
   }
 

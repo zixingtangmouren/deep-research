@@ -140,7 +140,7 @@ export class Block {
     let message: AssistantMessage;
 
     if (assistantMessage && Object.keys(tools).length === 0) {
-      this.debug && console.table([{ node: this.name, type: 'Assistant', content: JSON.stringify(assistantMessage) }]);
+      this.debug && console.log(`\n🤖 [${this.name}] Assistant:\n${assistantMessage}\n`);
       message = new AssistantMessage(assistantMessage);
       this.messages.push(message);
     }
@@ -149,15 +149,12 @@ export class Block {
       const tool_calls = Object.values(tools).map((tool) => tool);
 
       if (this.autoRunTools) {
-        this.debug &&
-          console.table([
-            {
-              node: this.name,
-              type: 'Assistant',
-              content: JSON.stringify(assistantMessage),
-              tools: tool_calls.map((tool) => `${tool.function.name}(${tool.function.arguments})`).join('\n'),
-            },
-          ]);
+        this.debug && (
+          console.log(`\n🤖 [${this.name}] Assistant with Tools:`),
+          assistantMessage && console.log(`📝 Content: ${assistantMessage}`),
+          console.log(`🔧 Tools: ${tool_calls.map((tool) => `${tool.function.name}(${tool.function.arguments})`).join(', ')}`),
+          console.log('')
+        );
         message = new AssistantMessage(assistantMessage, tool_calls);
         this.messages.push(message);
 
@@ -172,21 +169,17 @@ export class Block {
         });
         const toolResults = await Promise.all(callToolTasks);
         const toolResultMessages = toolResults.map((result, index) => {
-          console.table([{ node: this.name, type: 'tool', json: JSON.stringify(result) }]);
+          console.log(`🛠️  [${this.name}] Tool Result: ${result}`);
           return new ToolMessage(result, tools[index].id);
         });
         this.messages.push(...toolResultMessages);
 
         return await this.invoke();
       } else {
-        console.table([
-          {
-            node: this.name,
-            type: 'Assistant',
-            content: JSON.stringify(assistantMessage),
-            tools: tool_calls.map((tool) => `${tool.function.name}(${tool.function.arguments})`).join('\n'),
-          },
-        ]);
+        console.log(`\n🤖 [${this.name}] Assistant with Tools (Manual Mode):`),
+        assistantMessage && console.log(`📝 Content: ${assistantMessage}`),
+        console.log(`🔧 Tools: ${tool_calls.map((tool) => `${tool.function.name}(${tool.function.arguments})`).join(', ')}`),
+        console.log('');
         message = new AssistantMessage(assistantMessage, tool_calls);
       }
     }

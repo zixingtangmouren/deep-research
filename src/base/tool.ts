@@ -3,18 +3,18 @@ export interface Tool {
   function: {
     name: string;
     description: string;
-    parameters: {
-      type: 'object';
-      properties: {
+    parameters?: {
+      type?: 'object';
+      properties?: {
         [key: string]: {
           type: 'string' | 'number' | 'boolean' | 'object' | 'array';
           description: string;
         };
       };
-      required: string[];
+      required?: string[];
     };
   };
-  func: (args: any) => Promise<any>;
+  func: (args?: any) => Promise<any>;
 }
 
 export const createTool = (tool: Tool) => {

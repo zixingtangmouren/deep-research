@@ -20,6 +20,7 @@ interface BlockConfig {
     type: 'text' | 'json_object';
   };
   maxIterations?: number;
+  debug?: boolean;
 }
 
 dotenv.config();
@@ -31,10 +32,12 @@ export class Block {
   private instruction: string = '';
   private tools: Tools;
   private autoRunTools: boolean = true;
+  private maxIterations: number = 10;
+  private debug: boolean = false;
 
   constructor(config: BlockConfig) {
     if (!process.env.MODEL_NAME || !process.env.DEEPSEEK_API_KEY || !process.env.BASE_URL) {
-      throw new Error('MODEL_NAME, DEEPSEEK_API_KEY are not defined');
+      throw new Error('MODEL_NAME, DEEPSEEK_API_KEY, BASE_URL are not defined');
     }
 
     this.name = config.name;
@@ -47,6 +50,8 @@ export class Block {
       },
     };
 
+    this.maxIterations = config.maxIterations || 10;
+    this.debug = config.debug || false;
     this.instruction = config.instruction;
     this.messages.push(new SystemMessage(this.instruction));
     this.tools = config.tools || new Tools([]);
@@ -85,7 +90,6 @@ export class Block {
 
     let buffer = '';
     let assistantMessage = '';
-    // let reasoningContent = '';
     let tools: Record<number, ToolCall> = {};
 
     const reader = res.body?.getReader();
@@ -116,11 +120,6 @@ export class Block {
               assistantMessage += delta.content;
             }
 
-            // Handle reasoning content for deepseek-reasoner model
-            // if (delta?.reasoning_content) {
-            //   reasoningContent += delta.reasoning_content;
-            // }
-
             // 处理多个工具调用
             if (delta?.tool_calls) {
               delta?.tool_calls.forEach((toolCall: any) => {
@@ -141,7 +140,7 @@ export class Block {
     let message: AssistantMessage;
 
     if (assistantMessage && Object.keys(tools).length === 0) {
-      console.table([{ node: this.name, type: 'Assistant', content: JSON.stringify(assistantMessage) }]);
+      this.debug && console.table([{ node: this.name, type: 'Assistant', content: JSON.stringify(assistantMessage) }]);
       message = new AssistantMessage(assistantMessage);
       this.messages.push(message);
     }
@@ -150,7 +149,15 @@ export class Block {
       const tool_calls = Object.values(tools).map((tool) => tool);
 
       if (this.autoRunTools) {
-        console.table([{ node: this.name, type: 'Assistant', json: JSON.stringify(assistantMessage) }]);
+        this.debug &&
+          console.table([
+            {
+              node: this.name,
+              type: 'Assistant',
+              content: JSON.stringify(assistantMessage),
+              tools: tool_calls.map((tool) => `${tool.function.name}(${tool.function.arguments})`).join('\n'),
+            },
+          ]);
         message = new AssistantMessage(assistantMessage, tool_calls);
         this.messages.push(message);
 
@@ -177,7 +184,7 @@ export class Block {
             node: this.name,
             type: 'Assistant',
             content: JSON.stringify(assistantMessage),
-            tools: tool_calls.map((tool) => tool.function.name).join(','),
+            tools: tool_calls.map((tool) => `${tool.function.name}(${tool.function.arguments})`).join('\n'),
           },
         ]);
         message = new AssistantMessage(assistantMessage, tool_calls);

@@ -1,7 +1,6 @@
 import * as readline from 'readline';
 import { ReActAgent } from './src/react/index';
-import { Block } from './src/base/block';
-import { UserMessage } from './src/base/message';
+import { PlanondExecutorAgent } from './src/plan-and-execute';
 
 /**
  * 通用的终端对话方法
@@ -9,7 +8,7 @@ import { UserMessage } from './src/base/message';
  * @param welcomeMessage - 欢迎消息，可选
  */
 async function startTerminalChat(
-  agent: ReActAgent | Block,
+  agent: ReActAgent | PlanondExecutorAgent,
   welcomeMessage: string = '你好！我是你的AI助手，有什么可以帮助你的吗？'
 ) {
   const rl = readline.createInterface({
@@ -42,13 +41,7 @@ async function startTerminalChat(
         console.log('\n思考中...');
 
         let response;
-        if (agent instanceof ReActAgent) {
-          // 如果是 ReActAgent 实例
-          response = await agent.invoke(userInput);
-        } else {
-          // 如果是 Block 实例
-          response = await agent.invoke([new UserMessage(userInput)]);
-        }
+        response = await agent.invoke(userInput);
 
         console.log(`\nAI: ${response}\n`);
       } catch (error) {
@@ -70,5 +63,13 @@ export function createReActAgent(): ReActAgent {
   return new ReActAgent();
 }
 
-const defaultAgent = createReActAgent();
+/**
+ * 创建默认的 Plan and Executor Agent
+ */
+export function createPlanAndExecutorAgent(): PlanondExecutorAgent {
+  return new PlanondExecutorAgent();
+}
+
+// const defaultAgent = createReActAgent();
+const defaultAgent = createPlanAndExecutorAgent();
 startTerminalChat(defaultAgent);
